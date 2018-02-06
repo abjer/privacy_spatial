@@ -1,6 +1,6 @@
 # Privacy in spatial data with high resolution and time invariance
 
-This is a repository for code companioning the paper "Privacy in spatial data with high resolution and time invariance" written by [Andreas Bjerre-Nielsen](abjer.github.io) and [Mikkel Høst Gandil](https://mikkelgandil.github.io/).
+This is a repository for code companioning the paper "Privacy in spatial data with high resolution and time invariance" written by [Andreas Bjerre-Nielsen](https://abjer.github.io/) and [Mikkel Høst Gandil](https://mikkelgandil.github.io/).
 
 Throughout we are using the Danish squarenet (kvadratnettet). A documentation of this is found in  Styrelsen For Dataforsyning and Effektivisering's [documentation](http://www.sdfe.dk/media/gst/65230/kvadratnettet.pdf).
 
