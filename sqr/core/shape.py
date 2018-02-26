@@ -59,6 +59,8 @@ def voronoi_finite_polygons_2d(vor, radius=None):
         Coordinates for revised Voronoi vertices. Same as coordinates
         of input vertices, with 'points at infinity' appended to the
         end.
+        
+    Copied from https://gist.github.com/pv/8036995
     """
 
     if vor.points.shape[1] != 2:
@@ -125,7 +127,7 @@ def voronoi_finite_polygons_2d(vor, radius=None):
 def get_voronoi_series(df, origin_geom=None):
     '''
     Returns a series of Voronoi shapely objects contruced
-    from the centroids.
+    from the centroids.    
     '''
 
     if origin_geom == None:
