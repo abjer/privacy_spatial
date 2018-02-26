@@ -85,7 +85,7 @@ def get_undominated(df):
         if is_undominated:
             undominated.append(idx)
 
-    return df.loc[undominated]s
+    return df.loc[undominated]
 
 
 

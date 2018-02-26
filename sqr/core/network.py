@@ -43,7 +43,7 @@ def partition_surjective(partition,show=False):
 
 
 def local_edges(p, q, max_dist = 1):
-
+    
     local = range(int(max_dist)+1)
 
     check_dist_trivial = lambda i,j: (euclidian([i,j])<=max_dist and (i,j)!=(0,0))
@@ -60,6 +60,8 @@ def local_graph(df, cell_var='KN100mDK', max_dist=1, output_class='networkx'):
 
     Raises error when empty graph (i.e. length zero edgelist).
     '''
+    
+    #TODO: implement in sklearn's radius neighbor
 
     square_labels = df[cell_var].str[5:]
 
@@ -113,7 +115,7 @@ def get_communities(sub_df, max_dist = 10):
 
     G = local_graph(sub_df, max_dist=max_dist, output_class='igraph')
 
-    partition = louvain.find_partition(G, method='Modularity', weight='weight')
+    partition = louvain.find_partition(G, louvain.ModularityVertexPartition, weights='weight')
 
     return pd.Series(partition.membership, index=sub_df.index)\
              .rename('assignment')

@@ -34,8 +34,7 @@ def run_assignment(df, G, max_total_attempts,
     partition = copy.deepcopy(in_partition)
 
     assigned = list(itertools.chain(*partition))
-
-    unassigned = np.setdiff1d(G.nodes(), assigned)
+    unassigned = np.setdiff1d(list(G.nodes()), assigned)
 
     has_pop = df[df.minimum.notnull()].index
     unassigned_pop =  np.setdiff1d(has_pop, assigned)

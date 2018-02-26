@@ -45,7 +45,7 @@ def cell_expansion(i, unassigned, df, G, max_group_attempts,
         # choose next cell
         i = np.random.choice(current_group_neighbors)
 
-        feasible_neighbors = np.intersect1d(temp_unassigned, G.neighbors(i))
+        feasible_neighbors = np.intersect1d(temp_unassigned, list(G.neighbors(i)))
         if feasible_neighbors.size > 0:
             j = np.random.choice(feasible_neighbors)
         else:
@@ -105,7 +105,7 @@ def remove_null(group, df, G): #Rettet
              for i in group if empty[i]]
 
 
-    empty_group_by_dist = pd.Series(dict(empty_dists)).sort_values(ascending=0).index
+    empty_group_by_dist = pd.Series(dict(empty_dists)).sort_values(ascending=False).index
 
     removal = []
 
