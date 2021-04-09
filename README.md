@@ -8,11 +8,11 @@ We have used Anaconda Python 3 with packages installed from the conda-forge chan
 
 ```
 conda create -n privacy_spatial
+conda activate privacy_spatial
 conda config --add channels conda-forge
 conda config --set channel_priority strict
 conda install tqdm statsmodels seaborn scipy scikit-learn jupyter nose pytables networkx jupyter python-louvain geopandas requests -y
-conda activate privacy_spatial
-ipython kernel install --name privacy_spatial 
+ipython kernel install --name privacy_spatial
 ```
 
 
