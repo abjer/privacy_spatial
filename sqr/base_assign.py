@@ -1,16 +1,17 @@
 import copy
+import itertools
+
 import numpy as np
 import pandas as pd
-import itertools
-import sqr.core.algorithm
 
-minimum_col = 'minimum'
+from sqr.core.algorithm import cell_expansion, assign_selfsufficient, assign_remaining
+from sqr.core.config import years, years_hh, years_pers, minimum_cols
 
 def run_assignment(df, G, max_total_attempts,
                    max_group_attempts = 50,
                    in_partition = [],
                    fill_missing = True,
-                   year_cols = sqr.core.algorithm.year_cols_all,
+                   year_cols = years,
                    check_connectivity = True):
     """
     Function calculates a partion of the data supplied. The function calls
@@ -20,7 +21,7 @@ def run_assignment(df, G, max_total_attempts,
     Key arguments:
     df: Pandas dataframe with index corresponding to graph G
     G: NetworkX Graph with index corresponding to df. Contains neighbors
-    minimum_col: Column of df with minimum (not nan)
+    minimum_cols: Columns of df with minimum (not nan)
 
     pre_include: If True then cells incircled by partition gets included in partition
     fill_missing: If True algorithm attempts to include non-assigned cells where the do least harm
@@ -36,13 +37,12 @@ def run_assignment(df, G, max_total_attempts,
     assigned = list(itertools.chain(*partition))
     unassigned = np.setdiff1d(list(G.nodes()), assigned)
 
-    has_pop = df[df.minimum.notnull()].index
+    has_pop = df[df[minimum_cols].notnull().max(1)].index
     unassigned_pop =  np.setdiff1d(has_pop, assigned)
 
     if unassigned_pop.size != 0:
 
         while True:
-
 
             # initialize starting cell
             i = np.random.choice(unassigned_pop)
@@ -55,7 +55,9 @@ def run_assignment(df, G, max_total_attempts,
             #     continue
 
             # check if cell is self-sufficient
-            if df.loc[i,minimum_col]>=100: #rettet
+            check_pers = df.loc[i,minimum_cols[0]]>=100
+            check_hh = df.loc[i,minimum_cols[1]]>=50
+            if check_pers & check_hh:
                 partition += [[i]]
                 unassigned = np.setdiff1d(unassigned, [i])
                 unassigned_pop = np.setdiff1d(unassigned_pop, [i])
@@ -66,14 +68,15 @@ def run_assignment(df, G, max_total_attempts,
                 continue
 
             # attempt local cell expansion for merging cells
+            
             check_solution, unassigned, group = \
-                sqr.core.algorithm.cell_expansion(i=i,
-                                                  unassigned=unassigned,
-                                                  df=df,
-                                                  G=G,
-                                                  max_group_attempts=max_group_attempts,
-                                                  year_cols=year_cols,
-                                                  check_connectivity=check_connectivity)
+                cell_expansion(i=i,
+                               unassigned=unassigned,
+                               df=df,
+                               G=G,
+                               max_group_attempts=max_group_attempts,
+                               year_cols=year_cols,
+                               check_connectivity=check_connectivity)
 
             if check_solution:
                 unassigned_pop = np.setdiff1d(unassigned_pop, group)
@@ -86,17 +89,17 @@ def run_assignment(df, G, max_total_attempts,
 
         # assign cells with 100 as self sufficient groups
         partition, unassigned_pop = \
-            sqr.core.algorithm.assign_selfsufficient(partition=partition,
-                                                     unassigned_pop=unassigned_pop,
-                                                     df=df)
+            assign_selfsufficient(partition=partition,
+                                  unassigned_pop=unassigned_pop,
+                                  df=df)
 
 
         if fill_missing: #Assign missing where they do least harm
             partition, unassigned_pop = \
-                sqr.core.algorithm.assign_remaining(partition=partition,
-                                                    unassigned_pop=unassigned_pop,
-                                                    G=G,
-                                                    df=df,
-                                                    year_cols = year_cols)
+                assign_remaining(partition=partition,
+                                 unassigned_pop=unassigned_pop,
+                                 G=G,
+                                 df=df,
+                                 year_cols = year_cols)
 
     return partition #[[int(i) for i in g] for g in partition]

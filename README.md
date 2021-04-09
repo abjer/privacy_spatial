@@ -4,11 +4,21 @@ This is a repository for code companioning the paper "Privacy in spatial data wi
 
 Throughout we are using the Danish squarenet (kvadratnettet). A documentation of this is found in  Styrelsen For Dataforsyning and Effektivisering's [documentation](http://www.sdfe.dk/media/gst/65230/kvadratnettet.pdf).
 
+For installation use the following lines of code in your terminal/command prompt to install with conda
+```
+conda create -n privacy_spatial
+conda config --add channels conda-forge
+conda config --set channel_priority strict
+conda install tqdm statsmodels seaborn scipy scikit-learn jupyter nose pytables networkx jupyter python-louvain geopandas requests -y
+ipython kernel install --name privacy_spatial 
+```
+
+
 ### Overview
 
 The code for this project consists of three steps. We have used Anaconda Python 3 with packages installed from the conda-forge channel.
 
-***Step 1:*** This step consists in preprocessing the administrative spatial data. Before proceeding with this step you need to download and generate the Danish square net grid data, see [Grid Factory](http://www.routeware.dk/download.php). You also need to contact Statistics Denmark to get the population in each square net cell.
+***Step 1:*** This step consists in preprocessing the administrative spatial data. If you do not have data from Statistics Denmark, you can use the dummy data generated in Step 0.
 
 ***Step 2:*** This next step finds partition candidates for making a final partition. In this step we apply the functions found in the subfolder `sqr`.
 

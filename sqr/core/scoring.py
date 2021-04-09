@@ -5,7 +5,7 @@ import numpy as np
 
 import sqr.core.distance as dist
 
-mean_col = 'mean'
+from sqr.core.config import mean_cols, minimum_cols
 
 def partition(partition, df):
     '''
@@ -13,37 +13,45 @@ def partition(partition, df):
     summary statistics and values
     '''
 
-    temp_df = pd.DataFrame(df[[mean_col,'e','n']])
+    temp_df = pd.DataFrame(df[mean_cols+['e','n']])
     for idx,group in enumerate(partition):
         temp_df.loc[group,'assignment'] = idx
-        temp_df.loc[group,'pop_weight'] = temp_df.loc[group,mean_col].sum()/\
-                                          temp_df.loc[list(itertools.chain(*partition)),mean_col].sum()
+        for i,label in enumerate(['pers', 'hh']):
+            temp_df.loc[group, f'{label}_weight'] = \
+                temp_df.loc[group, mean_cols[i]].sum()/\
+                temp_df.loc[list(itertools.chain(*partition)), mean_cols[i]].sum()
 
     unweighted_distance = temp_df.groupby('assignment').apply(dist.unweighted).mean()
-    weighted_distance = temp_df.groupby('assignment').apply(dist.weighted).sum()
+    weighted_distance = temp_df.groupby('assignment').apply(dist.weighted_pers).sum()
+    weighted_distance = temp_df.groupby('assignment').apply(dist.weighted_hh).sum()
 
-    nonzero_null = (temp_df.assignment.isnull()) & (temp_df[mean_col].notnull())
+    nonzero_null = (temp_df.assignment.isnull()) & (temp_df[mean_cols].notnull().max(1))
 
     return [partition,
             float(unweighted_distance),
             float(weighted_distance),
             int(nonzero_null.sum()),
-            int(temp_df[nonzero_null][mean_col].sum())]
+            int(temp_df[nonzero_null][mean_cols[0]].sum()),
+            int(temp_df[nonzero_null][mean_cols[1]].sum())]
 
 
 # evalulating merge of cell into collection
 alpha = 1/10
 
 def group_collapse(group, extra, df):
+    a, b = df[mean_cols].mean()
+    ratio_pers_hh = a/b 
+    
     dist_new = dist.unweighted(df.loc[group+extra])
     dist_old = dist.unweighted(df.loc[group])
 
     ratio_dist = dist_new / dist_old
 
-    pop_new = df.loc[group+extra][mean_col].sum()
-    pop_old = df.loc[group][mean_col].sum()
+    pop_new = df.loc[group+extra][mean_cols].sum()
+    pop_old = df.loc[group][mean_cols].sum()
 
-    ratio_pop = pop_new / pop_old
+    ratio_pops = pop_new / pop_old
+    ratio_pop = ratio_pops.iloc[0] * 0.5 + ratio_pops.iloc[1] * ratio_pers_hh * 0.5
 
     return ratio_pop - alpha * ratio_dist
 
@@ -58,7 +66,7 @@ def partition_score(weighted_dist, pop_na, pop_total, beta = beta):
     return  -pop_na/pop_total - beta * weighted_dist
 
 
-dom_cols = ['weighted_dist','pop_nonzero_null']
+dom_cols = ['weighted_dist','pers_nonzero_null']
 
 def get_undominated(df):
     '''
@@ -77,7 +85,7 @@ def get_undominated(df):
         is_undominated = True
         for other_idx in indices:
             other = others[other_idx]
-            if (df.loc[other][dom_cols] < df.loc[idx][dom_cols]).min():
+            if (df.loc[other, dom_cols] < df.loc[idx, dom_cols]).min():
                 is_undominated = False
                 break
 

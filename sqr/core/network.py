@@ -1,12 +1,13 @@
 import itertools
 
+import community
 import numpy as np
 import pandas as pd
 import networkx as nx
-import igraph as ig
-import louvain
 
+from sklearn.neighbors import KDTree
 from sqr.core.distance import euclidian
+from sqr.core.config import cell_label
 
 # function for checking that groups are connected
 def group_connect(group, G):
@@ -42,18 +43,7 @@ def partition_surjective(partition,show=False):
         return set(itertools.chain(*overlap))
 
 
-def local_edges(p, q, max_dist = 1):
-    
-    local = range(int(max_dist)+1)
-
-    check_dist_trivial = lambda i,j: (euclidian([i,j])<=max_dist and (i,j)!=(0,0))
-
-    neighbors = [[(p,q),(i+p,j+q)] for i in local for j in local if check_dist_trivial(i,j)]
-
-    return neighbors
-
-
-def local_graph(df, cell_var='KN100mDK', max_dist=1, output_class='networkx'):
+def local_graph(df, cell_var=cell_label, max_dist=1):
     '''
     Outputs a graph where nodes are input cells in DataFrame
     and edges are between cells within 'max_dist'.
@@ -61,39 +51,27 @@ def local_graph(df, cell_var='KN100mDK', max_dist=1, output_class='networkx'):
     Raises error when empty graph (i.e. length zero edgelist).
     '''
     
-    #TODO: implement in sklearn's radius neighbor
 
     square_labels = df[cell_var].str[5:]
 
-    int_dict = square_labels.reset_index().set_index('KN100mDK')['index'].to_dict()
-
-    e_max,e_min = df.e.max(), df.e.min()
-    n_max,n_min = df.n.max(), df.n.min()
-
-    edges = [local_edges(p, q, max_dist) for [p,q] in df[['n','e']].values.tolist()]
-    edges_chain = list(itertools.chain(*edges))
-    edgelist = pd.DataFrame([('%i_%i' % p[0], '%i_%i' % p[1]) for p in edges_chain],columns=['i','j'])
-    edgelist = edgelist[edgelist.i.isin(square_labels) & edgelist.j.isin(square_labels)]
-
+    int_dict = square_labels.reset_index().set_index(cell_var)['index'].to_dict()
+    
+    X = df[['e','n']].values
+    tree = KDTree(X)
+    neighbors = tree.query_radius(X, max_dist)    
+    edgelist = \
+        np.array([(i, j) for i in range(len(X)) for j in neighbors[i] if j!=i])
+    edgelist_idx = \
+        np.concatenate([df.iloc[edgelist[:,c]].index.values.reshape(-1,1)
+                        for c in [0,1]],axis=1)
+    
     if len(edgelist)>0:
 
-        edgelist = edgelist.applymap(lambda cell: int_dict[cell]).values.tolist()
 
-        if output_class == 'networkx':
-            G = nx.Graph()
-            G.add_nodes_from(df.index.tolist())
-            G.add_edges_from(edgelist)
-        elif output_class == 'igraph':
-            lookup = dict(zip(df.index,range(len(df))))
-            G = ig.Graph()
-            G.add_vertices(range(len(df)))
-            def min_pop(i,j): return min(df.loc[i,'minimum'], df.loc[j,'minimum'])
+        G = nx.Graph()
+        G.add_nodes_from(df.index)
+        G.add_edges_from(edgelist_idx)
 
-            edgelist_idx = [(lookup[i],lookup[j],min_pop(i,j)) for i,j in edgelist]
-            G.add_edges([e[:2] for e in edgelist_idx])
-            G.es["weight"] = [e[2] for e in edgelist_idx]
-        else:
-            raise ValueError('Unsupported graph format')
         return G
 
     else:
@@ -101,7 +79,7 @@ def local_graph(df, cell_var='KN100mDK', max_dist=1, output_class='networkx'):
 
 
 
-def get_communities(sub_df, max_dist = 10):
+def get_communities(sub_gdf, max_dist = 10):
     '''
     Returns communities from network of local cells.
 
@@ -111,11 +89,8 @@ def get_communities(sub_df, max_dist = 10):
     Subsequently the Louvain algorithm is applied.
     '''
 
-    # sub_df = df[df.minimum.notnull()]
+    G = local_graph(sub_gdf, max_dist=max_dist)
+    partition = community.best_partition(G)
 
-    G = local_graph(sub_df, max_dist=max_dist, output_class='igraph')
-
-    partition = louvain.find_partition(G, louvain.ModularityVertexPartition, weights='weight')
-
-    return pd.Series(partition.membership, index=sub_df.index)\
+    return pd.Series(list(partition.values()), sub_gdf.index)\
              .rename('assignment')

@@ -160,3 +160,28 @@ def find_neighbor_shapes(gdf, buff_intersect = 100, overlap=True, buff_overlap =
         return pd.DataFrame(overlap, columns = ['idx1', 'idx2', 'overlap_area'])
 
     return pd.DataFrame(intersect, columns = ['idx1', 'idx2'])
+
+def make_spatial_grid(gdf, cell_column_name='DDKNm100'):
+    '''
+    This function creates square net from an input GeoDataFrame
+    '''
+    
+    if type(gdf)==gpd.geodataframe.GeoDataFrame:
+        shape = gdf.unary_union
+    else:
+        raise ValueError('Unsuported data type')
+        
+    
+    e_min,n_min = (np.floor(np.array(shape.bounds)/100))[[0,1]]
+    e_max,n_max = (np.ceil(np.array(shape.bounds)/100))[[2,3]]
+
+    arr = np.meshgrid(np.arange(e_min, e_max+1),np.arange(n_min ,n_max+1))
+    grid = pd.DataFrame({'e':arr[0].flatten(),
+                         'n':arr[1].flatten()})\
+                .astype('int')\
+                .pipe(make_gdf_square_data)
+    grid[cell_column_name] = '100m_' + grid.n.astype('str') +'_'+ grid.e.astype('str')
+    
+    grid_intersects = gpd.sjoin(grid, gdf[['geometry']]).drop(['index_right'], axis=1)
+    
+    return grid_intersects

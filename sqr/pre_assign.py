@@ -1,9 +1,10 @@
 import pandas as pd
 import geopandas as gpd
 
+from shapely.ops import unary_union
 from sqr.core.shape import get_voronoi_series, find_neighbor_shapes
 from sqr.core.network import get_communities
-from sqr.core.algorithm import year_cols_all
+from sqr.core.config import years_hh, years_pers
 
 def pre_partition_area(gdf, origin_geom):
     '''
@@ -11,31 +12,35 @@ def pre_partition_area(gdf, origin_geom):
     of shapes.
     '''
 
-    has_pop = gdf.minimum.notnull()
+    has_pop_and_pers = gdf.minimum_pers.notnull() & gdf.minimum_hh.notnull()
 
-    sub_gdf = gdf[has_pop].copy()
-
+    sub_gdf = gdf[has_pop_and_pers].copy()
+    
     # get assignment and voronoi shape
     voronoi_geo = get_voronoi_series(sub_gdf, origin_geom)
-
+    
     sub_gdf['assignment'] = get_communities(sub_gdf)
 
     sub_gdf = gpd.GeoDataFrame(geometry=voronoi_geo, data=sub_gdf)
 
     # get assignment information and geometry
     gb_assign = sub_gdf.groupby('assignment')
-    pop =  gb_assign\
-                .apply(lambda g: g[year_cols_all].dropna(axis=1,how='all').sum(0).min())\
-                .rename('count_pop')
+    
+    pers =  gb_assign\
+                .apply(lambda g: g[years_pers].dropna(axis=1,how='all').sum(0).min())\
+                .rename('count_pers')
+    
+    hh =  gb_assign\
+                .apply(lambda g: g[years_hh].dropna(axis=1,how='all').sum(0).min())\
+                .rename('count_hh')
     cell =  gb_assign.apply(lambda g: g.shape[0]).rename('count_cells')
-    info = pd.concat([pop,cell], axis=1)
+    info = pd.concat([pers,hh,cell], axis=1)
     info['cells'] = gb_assign.apply(lambda g: list(g.index))
     geoms = gb_assign.geometry.apply(lambda g: g.unary_union)
 
     df_pre = gpd.GeoDataFrame(data=info, geometry=geoms)
 
     return df_pre
-
 
 def merge_insufficient(in_gdf):
     '''
@@ -47,7 +52,7 @@ def merge_insufficient(in_gdf):
 
     gdf = in_gdf.copy()
 
-    insuff = (gdf.count_pop<100).to_dict()
+    insuff = ((gdf.count_pers<100)|(gdf.count_hh<50)).to_dict()
 
     overlap = find_neighbor_shapes(gdf)
     overlap = overlap[overlap.idx1.apply(lambda i: insuff[i])]
@@ -58,7 +63,7 @@ def merge_insufficient(in_gdf):
     neighbor_suff = (~gb_idx.other_insuff.min())
     match_to_neighbor = neighbor_suff.sort_values().index
 
-    info_cols = ['count_pop','count_cells','cells']
+    info_cols = ['count_pers', 'count_hh','count_cells','cells']
     optimals = {}
 
     geoms = gdf.geometry.to_dict()
@@ -75,9 +80,9 @@ def merge_insufficient(in_gdf):
 
         optimals[idx] = opt
 
-        geoms[opt] = gpd.base.unary_union([geoms[opt],geoms[idx]])
+        geoms[opt] = unary_union([geoms[opt],geoms[idx]])
 
-        gdf.loc[opt,info_cols] += gdf.loc[idx,info_cols]
+        gdf.loc[opt,info_cols] += gdf.loc[idx,info_cols].values
 
     df = gdf\
             .drop(match_to_neighbor, axis=0)\

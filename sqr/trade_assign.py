@@ -8,9 +8,7 @@ import numpy as np
 import sqr.core.network
 import sqr.core.algorithm
 import sqr.core.distance
-
-minimum_col = 'minimum'
-
+from sqr.core.config import mean_cols, minimum_cols, years
 
 def internal_trades(df,G,in_partition,p_lookup,
                     check_cells, unassigned_all,
@@ -26,10 +24,9 @@ def internal_trades(df,G,in_partition,p_lookup,
 
     local_partition = deepcopy(in_partition)
 
-
     trade_counter = {'self-sufficient':0, 'unassigned switch':0, 'assigned switch':0}
 
-    has_pop = lambda i: pd.notnull(df.loc[i,minimum_col])
+    has_pop = lambda i: df.loc[i,minimum_cols].notnull().max()
 
     is_relevant = lambda i: i in check_cells
 
@@ -43,7 +40,7 @@ def internal_trades(df,G,in_partition,p_lookup,
     for p in filter(lambda p: len(p)>1, local_partition):
         for i in filter(has_pop, filter(is_relevant, p)):
 
-            if sqr.core.algorithm.check_pop(df,np.setdiff1d(p,i)):
+            if sqr.core.algorithm.check_pop(df, np.setdiff1d(p,i), years):
                 redundant += [int(i)]
 
     removed=[]
@@ -57,10 +54,10 @@ def internal_trades(df,G,in_partition,p_lookup,
 
 
 
-            if sqr.core.algorithm.check_pop(df, np.setdiff1d(p_i,i)):
+            if sqr.core.algorithm.check_pop(df, np.setdiff1d(p_i,i), years):
 
                 # check if self-sufficient
-                if sqr.core.algorithm.check_pop(df,[i]):
+                if sqr.core.algorithm.check_pop(df, [i], years):
                     if sqr.core.network.group_connect([j for j in p_i if j!=i], G=G):
                         #print('selfsuff',i,p_i)
                         trade_counter['self-sufficient'] += 1
@@ -70,8 +67,6 @@ def internal_trades(df,G,in_partition,p_lookup,
                         removed += [i]
 
                         new_check_cells |= update_check_cells(G, [i]+p_i)
-
-
 
                         continue
 
@@ -86,7 +81,7 @@ def internal_trades(df,G,in_partition,p_lookup,
 
                 for m in unassigned_nnull:
                     if i_unmatched:
-                        if sqr.core.algorithm.check_pop(df,[i]+[m]):
+                        if sqr.core.algorithm.check_pop(df, [i]+[m], years):
                             if sqr.core.network.group_connect([j for j in p_i if j!=i], G=G):
                                 #print('unassgined',i,m,p_i)
                                 trade_counter['unassigned switch'] += 1
@@ -115,20 +110,20 @@ def internal_trades(df,G,in_partition,p_lookup,
                         p_m = local_partition[p_lookup[m]]
 
 
-                        if sqr.core.algorithm.check_pop(df, [i]+p_m):
+                        if sqr.core.algorithm.check_pop(df, [i]+p_m, years):
                             pminusi = [j for j in p_i if j!=i]
                             if sqr.core.network.group_connect(pminusi, G=G):
 
                                 pminusi = pminusi
 
-                                dist_old = sqr.core.distance.unweighted_pop(p_i, df) + \
-                                           sqr.core.distance.unweighted_pop(p_m, df)
-                                dist_new = sqr.core.distance.unweighted_pop(pminusi, df) + \
-                                           sqr.core.distance.unweighted_pop([i] + p_m, df)
+                                dist_old = sqr.core.distance.total_distance(p_i, df) + \
+                                           sqr.core.distance.total_distance(p_m, df)
+                                dist_new = sqr.core.distance.total_distance(pminusi, df) + \
+                                           sqr.core.distance.total_distance([i] + p_m, df)
 
                                 if dist_new<dist_old: #perform realignment if weighted distance is decreased
-                                    check_prior = sqr.core.algorithm.check_pop(df, pminusi)
-                                    check_next = sqr.core.algorithm.check_pop(df, [i] + p_m)
+                                    check_prior = sqr.core.algorithm.check_pop(df, pminusi, years)
+                                    check_next = sqr.core.algorithm.check_pop(df, [i] + p_m, years)
 
                                     if check_prior and check_next:
                                         #print('switch',i,m,p_i,p_m, pminusi)
@@ -151,7 +146,7 @@ def internal_trades(df,G,in_partition,p_lookup,
 
             group_df = df.loc[p]
 
-            if group_df[minimum_col].isnull().sum() > 0:
+            if group_df[minimum_cols].isnull().max(1).sum() > 0:
                 new_group, _ = \
                     sqr.core.algorithm.remove_null(p, df=df, G=G)
 
@@ -178,7 +173,7 @@ def internal_trades_iterative(df, G, partition,
 
     unassigned = list(set(map(int,df.index))-set(itertools.chain(*partition)))
     random.shuffle(unassigned)
-
+    
     p_lookup = dict([(int(i), p_idx) for (p_idx, p) in enumerate(iter_trade) for i in p])
     p_lookup.update(dict(zip(unassigned,[None]*len(iter_trade))))
 
