@@ -1,4 +1,4 @@
-# Privacy in spatial data with high resolution and time invariance
+s# Privacy in spatial data with high resolution and time invariance
 
 This is a repository for code companioning the paper "Privacy in spatial data with high resolution and time invariance" written by [Andreas Bjerre-Nielsen](https://abjer.github.io/) and [Mikkel Høst Gandil](https://mikkelgandil.github.io/).
 
